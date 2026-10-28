@@ -1,0 +1,106 @@
+%pip install minisom numpy pandas matplotlib scikit-learn
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from minisom import MiniSom
+from sklearn.preprocessing import MinMaxScaler
+
+np.random.seed(42)
+n_customers = 120
+
+annual_income = np.random.uniform(15, 120, n_customers)
+spending_score = np.random.uniform(1, 100, n_customers)
+purchase_frequency = np.random.uniform(1, 30, n_customers)
+
+customers = pd.DataFrame({
+    "Annual Income": annual_income,
+    "Spending Score": spending_score,
+    "Purchase Frequency": purchase_frequency
+})
+
+print("Sample Customer Data:")
+print(customers.head())
+
+scaler = MinMaxScaler()
+data_scaled = scaler.fit_transform(customers)
+
+som = MiniSom(
+    x=10,
+    y=10,
+    input_len=3,
+    sigma=1.0,
+    learning_rate=0.5,
+    random_seed=42
+)
+som.random_weights_init(data_scaled)
+
+som.train_random(data_scaled, num_iteration=1000)
+
+print("\nSOM training completed.")
+print("Grid size: 10 x 10")
+print("Number of customers:", n_customers)
+
+mapped_positions = []
+
+for customer in data_scaled:
+    bmu = som.winner(customer)
+    mapped_positions.append(bmu)
+
+mapped_positions = np.array(mapped_positions)
+
+plt.figure(figsize=(8, 6))
+plt.pcolor(
+    som.distance_map().T,
+    cmap="bone_r",
+    edgecolors="gray",
+    linewidth=0.5
+)
+plt.colorbar(label="Distance between neighboring neurons")
+plt.title("Self-Organizing Map - U-Matrix")
+plt.xlabel("SOM X-coordinate")
+plt.ylabel("SOM Y-coordinate")
+plt.xticks(np.arange(0.5, 10.5), range(10))
+plt.yticks(np.arange(0.5, 10.5), range(10))
+plt.tight_layout()
+plt.show()
+
+rng = np.random.default_rng(42)
+jitter_x = rng.uniform(-0.15, 0.15, n_customers)
+jitter_y = rng.uniform(-0.15, 0.15, n_customers)
+
+x_positions = mapped_positions[:, 0] + jitter_x
+y_positions = mapped_positions[:, 1] + jitter_y
+
+plt.figure(figsize=(9, 7))
+scatter = plt.scatter(
+    x_positions,
+    y_positions,
+    c=customers["Spending Score"],
+    cmap="viridis",
+    s=customers["Purchase Frequency"] * 5,
+    alpha=0.8,
+    edgecolors="black",
+    linewidths=0.3
+)
+plt.colorbar(scatter, label="Customer Spending Score")
+plt.title("Customer Patterns on a 2D SOM Grid")
+plt.xlabel("SOM X-coordinate")
+plt.ylabel("SOM Y-coordinate")
+plt.xticks(range(10))
+plt.yticks(range(10))
+plt.xlim(-0.5, 9.5)
+plt.ylim(-0.5, 9.5)
+plt.grid(True, linestyle="--", alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+results = customers.copy()
+results["SOM X"] = mapped_positions[:, 0]
+results["SOM Y"] = mapped_positions[:, 1]
+
+print("\nCustomer SOM Mapping:")
+print(results.head(10).round(2))
+
+print("\nNumber of occupied neurons:", len(set(map(tuple, mapped_positions))))
+print("\nResult: Similar customer profiles are mapped")
+print("to neighboring neurons on the SOM grid.")
